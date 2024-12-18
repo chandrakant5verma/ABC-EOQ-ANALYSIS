@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABC Analysis Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input, button {
+            margin: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            text-align: center;
+            padding: 8px;
+        }
+        .graph-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>ABC Analysis Tool made by chandrakant</h1>
+    <div>
+        <label>Product Name:</label>
+        <input type="text" id="productName">
+        <label>Quantity:</label>
+        <input type="number" id="quantity">
+        <label>Cost per Unit:</label>
+        <input type="number" id="cost">
+        <button onclick="addProduct()">Add Product</button>
+        
+
+    </div>
+
+    <table id="productTable">
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Cost per Unit</th>
+                <th>Annual Consumption Value</th>
+                <th>% Annual Consumption</th>
+                <th>Cumulative %</th>
+                <th>Class</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div>
+        <button onclick="clearProducts()">Clear Records</button>
+    </div>
+    <div class="graph-container">
+        <canvas id="abcChart" width="800" height="400"></canvas>
+    </div>
+
+    <script>
+        let products = [];
+        let totalACV = 0;
+        let chartInstance = null;
+
+        // Load products from session storage on page load
+        window.onload = function () {
+            const storedData = sessionStorage.getItem('products');
+            if (storedData) {
+                products = JSON.parse(storedData);
+                calculateABC();
+            }
+        };
+        function clearProducts() {
+            if (confirm("Are you sure you want to clear all records?")) {
+                // Clear all data
+                products = [];
+                sessionStorage.removeItem('products'); // Remove from sessionStorage
+        h
+                // Reset table and chart
+                renderTable();
+                if (chartInstance) chartInstance.destroy();
+                chartInstance = null;
+        
+                alert("All records have been cleared.");
+            }
+        }
+        
+        function addProduct() {
+            const name = document.getElementById('productName').value;
+            const quantity = parseFloat(document.getElementById('quantity').value);
+            const cost = parseFloat(document.getElementById('cost').value);
+
+            if (name && quantity > 0 && cost > 0) {
+                const acv = quantity * cost;
+                products.push({ name, quantity, cost, acv });
+                saveToSession();
+                calculateABC();
+                clearInputs();
+            } else {
+                alert('Please enter valid product details.');
+            }
+        }
+
+        function saveToSession() {
+            sessionStorage.setItem('products', JSON.stringify(products));
+        }
+
+        function calculateABC() {
+            // Calculate Total ACV
+            totalACV = products.reduce((sum, product) => sum + product.acv, 0);
+
+            // Sort Products by ACV (Descending)
+            products.sort((a, b) => b.acv - a.acv);
+
+            // Calculate % Annual Consumption and Cumulative %
+            let cumulative = 0;
+            products.forEach((product, index) => {
+                product.percentage = (product.acv / totalACV) * 100;
+                cumulative += product.percentage;
+                product.cumulative = cumulative;
+                product.class = classifyProduct(product.cumulative);
+            });
+
+            renderTable();
+            renderChart();
+        }
+
+        function classifyProduct(cumulative) {
+            if (cumulative <= 70) return 'A';
+            if (cumulative <= 90) return 'B';
+            return 'C';
+        }
+
+        function renderTable() {
+            const tbody = document.querySelector('#productTable tbody');
+            tbody.innerHTML = '';
+            products.forEach((product, index) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${product.name}</td>
+                        <td>${product.quantity}</td>
+                        <td>${product.cost.toFixed(2)}</td>
+                        <td>${product.acv.toFixed(2)}</td>
+                        <td>${product.percentage.toFixed(2)}</td>
+                        <td>${product.cumulative.toFixed(2)}</td>
+                        <td>${product.class}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('abcChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const labels = products.map((_, index) => index + 1);
+            const cumulativeData = products.map(product => product.cumulative);
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ABC ANALYSIS',
+                        data: cumulativeData,
+                        borderColor: 'blue',
+                        fill: false,
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Cumulative Percentage (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Rank'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function clearInputs() {
+            document.getElementById('productName').value = '';
+            document.getElementById('quantity').value = '';
+            document.getElementById('cost').value = '';
+        }
+    </script>
+</body>
+</html>
